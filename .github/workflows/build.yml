@@ -28,14 +28,15 @@ jobs:
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
-      - name: Install WDK
+      - name: Install Windows SDK 10.0.26100
         shell: pwsh
         run: |
-          choco install windowsdriverkit -y
+          Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/?linkid=2294681" -OutFile "$env:TEMP\sdksetup.exe"
+          Start-Process -Wait -FilePath "$env:TEMP\sdksetup.exe" -ArgumentList "/quiet", "/norestart", "/features", "+"
 
       - name: Build ${{ matrix.arch }} Release
         run: |
-          msbuild Ext4Fsd.sln /p:Configuration=Release /p:Platform=${{ matrix.arch }} /p:TargetVersion=Windows10 /m
+          msbuild Ext4Fsd.sln /p:Configuration=Release /p:Platform=${{ matrix.arch }} /p:TargetVersion=Windows10 /p:WindowsTargetPlatformVersion=10.0.26100.0 /m
 
       - name: Upload signed-${{ matrix.dir }}
         uses: actions/upload-artifact@v4
