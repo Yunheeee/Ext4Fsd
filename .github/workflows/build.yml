@@ -1,0 +1,48 @@
+name: Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            dir: x64
+          - arch: Win32
+            dir: x86
+          - arch: ARM
+            dir: arm
+          - arch: ARM64
+            dir: arm64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Install WDK
+        shell: pwsh
+        run: |
+          choco install windowsdriverkit -y
+
+      - name: Build ${{ matrix.arch }} Release
+        run: |
+          msbuild Ext4Fsd.sln /p:Configuration=Release /p:Platform=${{ matrix.arch }} /p:TargetVersion=Windows10 /m
+
+      - name: Upload signed-${{ matrix.dir }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-${{ matrix.dir }}
+          path: |
+            Ext4Fsd/Release/${{ matrix.dir }}/Ext4Fsd.sys
+            Ext2Mgr/Release/${{ matrix.dir }}/Ext2Mgr.exe
+            Ext2Srv/Release/${{ matrix.dir }}/Ext2Srv.exe
+          if-no-files-found: warn
