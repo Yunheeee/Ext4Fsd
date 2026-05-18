@@ -83,26 +83,6 @@ jobs:
         shell: pwsh
         run: choco install nsis -y
 
-      # Debug step: list VS Redist structure and system DLL locations
-      - name: Diagnose DLL locations
-        shell: pwsh
-        run: |
-          $vsPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
-          "=== VC\Redist\MSVC ==="
-          dir "$vsPath\VC\Redist\MSVC" -Recurse -ErrorAction SilentlyContinue |
-            ForEach-Object { $_.FullName }
-          "=== System32 VC DLLs ==="
-          dir "$env:SystemRoot\System32\vcruntime*.dll" -ErrorAction SilentlyContinue |
-            ForEach-Object { $_.FullName }
-          dir "$env:SystemRoot\System32\mfc140.dll" -ErrorAction SilentlyContinue |
-            ForEach-Object { $_.FullName }
-          "=== SysWOW64 VC DLLs ==="
-          dir "$env:SystemRoot\SysWOW64\vcruntime*.dll" -ErrorAction SilentlyContinue |
-            ForEach-Object { $_.FullName }
-          dir "$env:SystemRoot\SysWOW64\mfc140.dll" -ErrorAction SilentlyContinue |
-            ForEach-Object { $_.FullName }
-        continue-on-error: true
-
       - name: Build setup.exe
         shell: pwsh
         run: |
@@ -118,66 +98,69 @@ jobs:
           $vsPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
           $needed = @("vcruntime140.dll", "vcruntime140_1.dll", "mfc140.dll")
 
-          # Try VS Redist MSVC directory
+          # ---- STRATEGY 1: VC\Redist\MSVC ----
           Write-Host "=== Strategy 1: VC\Redist\MSVC ==="
           $redirRoot = "$vsPath\VC\Redist\MSVC"
           if (Test-Path $redirRoot) {
-            Get-ChildItem $redirRoot -Recurse -Filter "*.dll" -ErrorAction SilentlyContinue |
+            dir "$redirRoot" -Recurse -Include "*.dll" -ErrorAction SilentlyContinue |
               ForEach-Object { Write-Host "  $($_.FullName)" }
             # Copy x64 DLLs
-            Get-ChildItem "$redirRoot" -Recurse -Filter "*.dll" -ErrorAction SilentlyContinue |
-              Where-Object { $_.DirectoryName -match '\\x64\\' -or $_.DirectoryName -match '\\amd64\\' } |
+            Get-ChildItem "$redirRoot" -Recurse -Include "*.dll" -ErrorAction SilentlyContinue |
+              Where-Object { $_.DirectoryName -match 'x64' } |
               Copy-Item -Destination $stagingX64 -ErrorAction SilentlyContinue
             # Copy x86 DLLs
-            Get-ChildItem "$redirRoot" -Recurse -Filter "*.dll" -ErrorAction SilentlyContinue |
-              Where-Object { $_.DirectoryName -match '\\x86\\' -or $_.DirectoryName -match '\\x32\\' } |
+            Get-ChildItem "$redirRoot" -Recurse -Include "*.dll" -ErrorAction SilentlyContinue |
+              Where-Object { $_.DirectoryName -match 'x86' -and $_.DirectoryName -notmatch 'x64' } |
               Copy-Item -Destination $stagingX86 -ErrorAction SilentlyContinue
           } else {
             Write-Host "  VC\Redist\MSVC not found"
           }
 
-          # Try system directories (64-bit PS -> System32 = 64-bit, SysWOW64 = 32-bit)
-          if (-not (Test-Path "$stagingX64\vcruntime140.dll")) {
-            Write-Host "=== Strategy 2: System32 ==="
-            foreach ($dll in $needed) {
-              $src = "$env:SystemRoot\System32\$dll"
-              if (Test-Path $src) {
-                Copy-Item $src "$stagingX64\$dll" -Force -ErrorAction SilentlyContinue
-                Write-Host "  Copied $dll"
-              } else {
-                Write-Host "  $dll NOT found in System32"
-              }
+          # ---- STRATEGY 2: System directories ----
+          Write-Host "=== Strategy 2: System32 (x64) ==="
+          foreach ($dll in $needed) {
+            $src = "$env:SystemRoot\System32\$dll"
+            if (Test-Path $src) {
+              Copy-Item $src "$stagingX64\$dll" -Force -ErrorAction SilentlyContinue
+              Write-Host "  x64: $dll OK"
+            } else {
+              Write-Host "  x64: $dll MISSING"
             }
           }
-          if (-not (Test-Path "$stagingX86\vcruntime140.dll")) {
-            Write-Host "=== Strategy 3: SysWOW64 ==="
-            foreach ($dll in $needed) {
-              $src = "$env:SystemRoot\SysWOW64\$dll"
-              if (Test-Path $src) {
-                Copy-Item $src "$stagingX86\$dll" -Force -ErrorAction SilentlyContinue
-                Write-Host "  Copied $dll"
-              } else {
-                Write-Host "  $dll NOT found in SysWOW64"
-              }
+          Write-Host "=== Strategy 3: SysWOW64 (x86) ==="
+          foreach ($dll in $needed) {
+            $src = "$env:SystemRoot\SysWOW64\$dll"
+            if (Test-Path $src) {
+              Copy-Item $src "$stagingX86\$dll" -Force -ErrorAction SilentlyContinue
+              Write-Host "  x86: $dll OK"
+            } else {
+              Write-Host "  x86: $dll MISSING"
             }
           }
 
-          # Log everything staged
+          # ---- LOG STAGED DLLS ----
           Write-Host "=== Staged DLLs ==="
           Get-ChildItem "$env:TEMP\redist" -Recurse -Filter "*.dll" -ErrorAction SilentlyContinue |
             ForEach-Object { Write-Host "  $($_.FullName)" }
 
-          # Prepare makensis flags - only define paths that actually have DLLs
+          # ---- PREPARE MAKENSIS FLAGS ----
           $mkaArgs = @()
-          $haveX64 = Test-Path "$stagingX64\vcruntime140.dll"
-          $haveX86 = Test-Path "$stagingX86\vcruntime140.dll"
-          $haveMfcX64 = Test-Path "$stagingX64\mfc140.dll"
-          $haveMfcX86 = Test-Path "$stagingX86\mfc140.dll"
-
-          if ($haveX64) { $mkaArgs += "/DMSVPATH_X64=$stagingX64"; $mkaArgs += "/DHAS_VCRT_X64" }
-          if ($haveX86) { $mkaArgs += "/DMSVPATH_X86=$stagingX86"; $mkaArgs += "/DHAS_VCRT_X86" }
-          if ($haveMfcX64) { $mkaArgs += "/DMFCPATH_X64=$stagingX64"; $mkaArgs += "/DHAS_MFC_X64" }
-          if ($haveMfcX86) { $mkaArgs += "/DMFCPATH_X86=$stagingX86"; $mkaArgs += "/DHAS_MFC_X86" }
+          if (Test-Path "$stagingX64\vcruntime140.dll") {
+            $mkaArgs += "/DMSVPATH_X64=$stagingX64"
+            $mkaArgs += "/DHAS_VCRT_X64"
+          }
+          if (Test-Path "$stagingX86\vcruntime140.dll") {
+            $mkaArgs += "/DMSVPATH_X86=$stagingX86"
+            $mkaArgs += "/DHAS_VCRT_X86"
+          }
+          if (Test-Path "$stagingX64\mfc140.dll") {
+            $mkaArgs += "/DMFCPATH_X64=$stagingX64"
+            $mkaArgs += "/DHAS_MFC_X64"
+          }
+          if (Test-Path "$stagingX86\mfc140.dll") {
+            $mkaArgs += "/DMFCPATH_X86=$stagingX86"
+            $mkaArgs += "/DHAS_MFC_X86"
+          }
 
           # Check x86 driver
           $x86Driver = "Ext4Fsd\Release\x86\Ext2Fsd.sys"
@@ -191,9 +174,11 @@ jobs:
           Push-Location Setup
           Write-Host "Running: makensis $($mkaArgs -join ' ') ext2fsd.nsi"
           & "C:\Program Files (x86)\NSIS\makensis.exe" $mkaArgs "ext2fsd.nsi"
-          $ok = $?
+          # Capture exit code
+          $exitCode = $LASTEXITCODE
+          Write-Host "makensis exit code: $exitCode"
           Pop-Location
-          if (-not $ok) { exit 1 }
+          if ($exitCode -ne 0) { exit $exitCode }
 
       - name: Upload Ext2Fsd-setup.exe
         uses: actions/upload-artifact@v4
