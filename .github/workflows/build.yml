@@ -19,11 +19,26 @@ jobs:
       - name: Install Windows SDK 10.0.26100
         shell: pwsh
         run: |
-          & "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\vs_installer.exe" modify `
-            --installPath "C:\Program Files\Microsoft Visual Studio\2022\Enterprise" `
-            --add Microsoft.VisualStudio.Component.Windows10SDK.26100 `
-            --quiet
+          # Try standalone installer first, fall back to vs_installer
           $sdkDir = "C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0"
+          if (Test-Path "$sdkDir") {
+            Write-Host "SDK 10.0.26100.0 already present at $sdkDir"
+            exit 0
+          }
+          Write-Host "Downloading Windows SDK 10.0.26100 standalone installer..."
+          $url = "https://go.microsoft.com/fwlink/?linkid=2327008"
+          $out = "$env:TEMP\winsdksetup.exe"
+          curl.exe -sL $url -o $out
+          if (-not (Test-Path $out)) {
+            Write-Warning "Standalone download failed, trying vs_installer..."
+            & "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\vs_installer.exe" modify `
+              --installPath "C:\Program Files\Microsoft Visual Studio\2022\Enterprise" `
+              --add Microsoft.VisualStudio.Component.Windows10SDK.26100 `
+              --quiet
+          } else {
+            Write-Host "Installing SDK silently (this may take a few minutes)..."
+            Start-Process -Wait -FilePath $out -ArgumentList "/quiet", "/norestart"
+          }
           if (-not (Test-Path "$sdkDir")) {
             Write-Error "SDK 10.0.26100.0 installation failed - include directory not found at $sdkDir"
             exit 1
