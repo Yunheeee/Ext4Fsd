@@ -83,6 +83,37 @@ jobs:
         shell: pwsh
         run: choco install nsis -y
 
+      - name: Test NSIS
+        shell: pwsh
+        run: |
+          $makensis = "C:\Program Files (x86)\NSIS\makensis.exe"
+          if (-not (Test-Path $makensis)) {
+            Write-Host "::error::makensis not found at $makensis"
+            exit 1
+          }
+          Write-Host "makensis found: $makensis"
+          $ver = & $makensis -version 2>&1
+          Write-Host "Version: $ver"
+
+          # Create a minimal NSIS test script without using here-strings
+          $testContent = 'Name "test"
+OutFile "' + $env:RUNNER_TEMP + '\test.exe"
+Section
+SectionEnd'
+          $testScript = "$env:RUNNER_TEMP\test.nsi"
+          Set-Content -Path $testScript -Value $testContent
+          Write-Host "Test script created at $testScript"
+          Get-Content $testScript | ForEach-Object { Write-Host "  $_" }
+
+          & $makensis $testScript 2>&1
+          $exitCode = $LASTEXITCODE
+          Write-Host "Test makensis exit code: $exitCode"
+          if ($exitCode -ne 0) {
+            Write-Host "::error::NSIS test compilation failed with exit code $exitCode"
+            exit $exitCode
+          }
+          Write-Host "NSIS test PASSED"
+
       - name: Build setup.exe
         shell: pwsh
         run: |
