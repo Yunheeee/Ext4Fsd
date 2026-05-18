@@ -3,4 +3,5 @@ Debug/
 Release/
 *.vcxproj.user
 Ext2Fsd-setup.exe
+Setup/build-config.nsh
 */cab/
