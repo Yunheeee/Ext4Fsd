@@ -86,63 +86,77 @@ jobs:
       - name: Build setup.exe
         shell: pwsh
         run: |
+          # Stage DLLs per architecture so NSIS can embed the correct versions.
+          # NSIS is 32-bit so accessing C:\Windows\System32 hits the WOW64
+          # redirector - we stage to a temp dir to avoid that.
+          $stagingX64 = "$env:TEMP\redist\x64"
+          $stagingX86 = "$env:TEMP\redist\x86"
+          Remove-Item -Recurse -Force "$env:TEMP\redist" -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $stagingX64 | Out-Null
+          New-Item -ItemType Directory -Force -Path $stagingX86 | Out-Null
+
           $vsPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
-          # Locate the MSVC redist DLLs - the directory structure varies by VS update
+          $okX64 = $false; $okX86 = $false
+
+          # Strategy 1: VC\Redist\MSVC (latest version folder)
           $redirRoot = "$vsPath\VC\Redist\MSVC"
-          $redirVer = Get-ChildItem $redirRoot | Where-Object { $_.Name -match '^\d+' } |
-            Sort-Object Name -Descending | Select-Object -First 1 -ExpandProperty Name
-          if (-not $redirVer) {
-            # Fallback: use any folder including non-numeric names
-            $redirVer = Get-ChildItem $redirRoot | Sort-Object Name -Descending |
-              Select-Object -First 1 -ExpandProperty Name
+          $verDirs = Get-ChildItem $redirRoot -Directory -ErrorAction SilentlyContinue |
+            Sort-Object Name -Descending
+          if ($verDirs) {
+            $ver = $verDirs[0].Name
+            Write-Host "Found VC\Redist\MSVC\$ver"
+            foreach ($arch in @("x64", "x86")) {
+              $target = if ($arch -eq "x64") { $stagingX64 } else { $stagingX86 }
+              foreach ($sub in @("Microsoft.VC143.CRT", "Microsoft.VC143.CRT.merged")) {
+                $d = "$redirRoot\$ver\$arch\$sub"
+                if (Test-Path "$d\vcruntime140.dll") {
+                  Copy-Item "$d\*.dll" $target -ErrorAction SilentlyContinue
+                  if ($arch -eq "x64") { $okX64 = $true } else { $okX86 = $true }
+                  Write-Host "  $arch DLLs from $sub"
+                  break
+                }
+              }
+            }
           }
-          Write-Host "MSVC redist version: $redirVer"
-          # Verify DLLs exist at expected paths
-          $crtDirs = @(
-            @{arch="X64"; dir="$redirRoot\$redirVer\x64\Microsoft.VC143.CRT"}
-            @{arch="X86"; dir="$redirRoot\$redirVer\x86\Microsoft.VC143.CRT"}
-          )
-          $mfcDirs = @(
-            @{arch="X64"; dir="$redirRoot\$redirVer\x64\Microsoft.VC143.MFC"}
-            @{arch="X86"; dir="$redirRoot\$redirVer\x86\Microsoft.VC143.MFC"}
-          )
-          # Check CRT dirs and fall back to alternate locations if needed
-          foreach ($d in $crtDirs) { if (-not (Test-Path "$($d.dir)\vcruntime140.dll")) { $d.dir = "" } }
-          foreach ($d in $mfcDirs) { if (-not (Test-Path "$($d.dir)\mfc140.dll")) { $d.dir = "" } }
+
+          # Strategy 2: stage from system directories
+          # From 64-bit PowerShell, System32 = 64-bit DLLs, SysWOW64 = 32-bit DLLs
+          if (-not $okX64) {
+            Write-Host "x64 fallback: staging from System32..."
+            Copy-Item "$env:SystemRoot\System32\vcruntime140*.dll" $stagingX64 -ErrorAction SilentlyContinue
+            Copy-Item "$env:SystemRoot\System32\mfc140.dll" $stagingX64 -ErrorAction SilentlyContinue
+            $okX64 = Test-Path "$stagingX64\vcruntime140.dll"
+            if ($okX64) { Write-Host "  x64 DLLs staged from System32" }
+          }
+          if (-not $okX86) {
+            Write-Host "x86 fallback: staging from SysWOW64..."
+            Copy-Item "$env:SystemRoot\SysWOW64\vcruntime140.dll" $stagingX86 -ErrorAction SilentlyContinue
+            Copy-Item "$env:SystemRoot\SysWOW64\mfc140.dll" $stagingX86 -ErrorAction SilentlyContinue
+            $okX86 = Test-Path "$stagingX86\vcruntime140.dll"
+            if ($okX86) { Write-Host "  x86 DLLs staged from SysWOW64" }
+          }
+
+          # Log what we found
+          Get-ChildItem "$env:TEMP\redist" -Recurse -Filter "*.dll" -ErrorAction SilentlyContinue |
+            ForEach-Object { Write-Host "  Staged $($_.FullName)" }
+
           # Build makensis arguments
-          $args = @()
-          if ($crtDirs[0].dir) { $args += "/DMSVPATH_X64=$($crtDirs[0].dir)" }
-          if ($crtDirs[1].dir) { $args += "/DMSVPATH_X86=$($crtDirs[1].dir)" }
-          if ($mfcDirs[0].dir) { $args += "/DMFCPATH_X64=$($mfcDirs[0].dir)" }
-          if ($mfcDirs[1].dir) { $args += "/DMFCPATH_X86=$($mfcDirs[1].dir)" }
-          # If any path is missing, use Windows system32 as fallback
-          if (-not $crtDirs[0].dir) {
-            Write-Host "x64 CRT not found in VS, using system32 fallback"
-            $args += "/DMSVPATH_X64=C:\Windows\System32"
-          }
-          if (-not $crtDirs[1].dir) {
-            Write-Host "x86 CRT not found in VS, using syswow64 fallback"
-            $args += "/DMSVPATH_X86=C:\Windows\SysWOW64"
-          }
-          if (-not $mfcDirs[0].dir) {
-            Write-Host "x64 MFC not found in VS, using system32 fallback"
-            $args += "/DMFCPATH_X64=C:\Windows\System32"
-          }
-          if (-not $mfcDirs[1].dir) {
-            Write-Host "x86 MFC not found in VS, using syswow64 fallback"
-            $args += "/DMFCPATH_X86=C:\Windows\SysWOW64"
-          }
+          $mkaArgs = @()
+          if ($okX64) { $mkaArgs += "/DMSVPATH_X64=$stagingX64"; $mkaArgs += "/DMFCPATH_X64=$stagingX64" }
+          if ($okX86) { $mkaArgs += "/DMSVPATH_X86=$stagingX86"; $mkaArgs += "/DMFCPATH_X86=$stagingX86" }
+
           # Check x86 driver
           $x86Driver = "Ext4Fsd\Release\x86\Ext2Fsd.sys"
           if (Test-Path $x86Driver) {
             Write-Host "x86 driver found, including in installer"
-            $args += "/DX86_DRIVER_AVAILABLE"
+            $mkaArgs += "/DX86_DRIVER_AVAILABLE"
           } else {
             Write-Host "x86 driver not available (WDK 26100 limitation), skipping from installer"
           }
+
           Push-Location Setup
-          Write-Host "Running: makensis $($args -join ' ') ext2fsd.nsi"
-          & "C:\Program Files (x86)\NSIS\makensis.exe" $args "ext2fsd.nsi"
+          Write-Host "Running: makensis $($mkaArgs -join ' ') ext2fsd.nsi"
+          & "C:\Program Files (x86)\NSIS\makensis.exe" $mkaArgs "ext2fsd.nsi"
           $ok = $?
           Pop-Location
           if (-not $ok) { exit 1 }
