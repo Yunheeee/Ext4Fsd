@@ -64,8 +64,8 @@ jobs:
       # Build all architectures for artifact distribution
       - name: Build x64 Release
         run: msbuild Ext4Fsd.sln /p:Configuration=Release /p:Platform=x64 /m
-      - name: Build Win32 Release
-        run: msbuild Ext4Fsd.sln /p:Configuration=Release /p:Platform=Win32 /m
+      - name: Build Win32 (x86) Release
+        run: msbuild Ext4Fsd.sln /p:Configuration=Release /p:Platform=x86 /m
       - name: Build ARM Release
         run: msbuild Ext4Fsd.sln /p:Configuration=Release /p:Platform=ARM /m
       - name: Build ARM64 Release
