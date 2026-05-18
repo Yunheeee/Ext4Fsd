@@ -117,7 +117,11 @@ else:
     File "${MGRPATH_X86}\Ext2Mgr.exe"
     File "${SRVPATH_X86}\Ext2Srv.exe"
 ;    File "${SYSPATH_X86}\${DRIVERNAME}.pdb"
-    File "${SYSPATH_X86}\${DRIVERNAME}.sys"
+    ; WDK 10.0.26100+ does not support x86 kernel-mode drivers,
+    ; so the x86 driver may not be available at build time.
+    !ifexist "${SYSPATH_X86}\${DRIVERNAME}.sys"
+      File "${SYSPATH_X86}\${DRIVERNAME}.sys"
+    !endif
 endif:
 
 File "..\ext4fsd\${DRIVERNAME}.inf"
