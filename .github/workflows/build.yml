@@ -86,7 +86,7 @@ jobs:
       - name: Generate NSIS build config
         shell: pwsh
         run: |
-          $vsPath = & "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\vswhere.exe" -latest -property installationPath
+          $vsPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
           $msvcVer = Get-ChildItem "$vsPath\VC\Redist\MSVC" | Sort-Object Name -Descending | Select-Object -First 1 -ExpandProperty Name
           Write-Host "MSVC redist version: $msvcVer"
           @"
