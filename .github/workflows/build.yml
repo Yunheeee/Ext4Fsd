@@ -199,6 +199,15 @@ jobs:
             log "x86 driver not available (WDK 26100 limitation), skipping from installer"
           }
 
+          # Check catalog file (security catalog for driver signing)
+          $catFile = "Ext4Fsd\Release\x64\Ext2Fsd.cat"
+          if (Test-Path $catFile) {
+            log "x64 catalog file found, including in installer"
+            $mkaArgs += "/DHAS_CAT_X64"
+          } else {
+            log "x64 catalog file not found, skipping from installer"
+          }
+
           Push-Location Setup
           log "=== Running makensis ==="
           log "  Command: makensis $($mkaArgs -join ' ') ext2fsd.nsi"

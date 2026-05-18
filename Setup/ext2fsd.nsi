@@ -109,7 +109,9 @@ IfFileExists $WINDIR\SysWOW64\*.* 0 else
     File "${MGRPATH_X64}\Ext2Mgr.exe"
     File "${SRVPATH_X64}\Ext2Srv.exe"
 ;    File "${SYSPATH_X64}\${DRIVERNAME}.pdb"
-    File "${SYSPATH_X64}\${DRIVERNAME}.cat"        ; 签名目录文件（Windows 10+ 强制要求）
+    !ifdef HAS_CAT_X64
+      File "${SYSPATH_X64}\${DRIVERNAME}.cat"
+    !endif
     File "${SYSPATH_X64}\${DRIVERNAME}.sys"
     Goto endif
 else:
