@@ -61,45 +61,22 @@ jobs:
             Write-Host "WDK 10.0.26100.0 confirmed"
           }
 
-      # Build all architectures for artifact distribution
+      # Build both architectures for Windows
       # Note: WDK 10.0.26100 does NOT support x86 (Win32) kernel-mode drivers.
-      # Only x64/ARM/ARM64 are valid for the driver.
       - name: Build x64 Release (driver + tools)
         run: msbuild Ext4Fsd.sln /p:Configuration=Release /p:Platform=x64 /m
       - name: Build x86 tools only (Ext2Srv + Ext2Mgr)
         run: |
           msbuild Ext2Srv\Ext2Srv.vcxproj /p:Configuration=Release /p:Platform=Win32 /m
           msbuild Ext2Mgr\Ext2Mgr.vcxproj /p:Configuration=Release /p:Platform=Win32 /m
-      - name: Build ARM Release
-        run: msbuild Ext4Fsd.sln /p:Configuration=Release /p:Platform=ARM /m
-      - name: Build ARM64 Release
-        run: msbuild Ext4Fsd.sln /p:Configuration=Release /p:Platform=ARM64 /m
 
-      # Upload individual architecture driver artifacts
+      # Upload driver artifacts
       - name: Upload signed-x64
         uses: actions/upload-artifact@v4
         with:
           name: signed-x64
           path: Ext4Fsd/Release/x64/Ext2Fsd.sys
           if-no-files-found: error
-      - name: Upload signed-x86
-        uses: actions/upload-artifact@v4
-        with:
-          name: signed-x86
-          path: Ext4Fsd/Release/x86/Ext2Fsd.sys
-          if-no-files-found: warn
-      - name: Upload signed-arm
-        uses: actions/upload-artifact@v4
-        with:
-          name: signed-arm
-          path: Ext4Fsd/Release/arm/Ext2Fsd.sys
-          if-no-files-found: warn
-      - name: Upload signed-arm64
-        uses: actions/upload-artifact@v4
-        with:
-          name: signed-arm64
-          path: Ext4Fsd/Release/arm64/Ext2Fsd.sys
-          if-no-files-found: warn
 
       # Install NSIS and prepare VC++ redist files for the installer
       - name: Install NSIS
