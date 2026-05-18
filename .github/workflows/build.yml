@@ -27,7 +27,7 @@ jobs:
           }
           Write-Host "Downloading Windows SDK 10.0.26100 standalone installer..."
           $url = "https://go.microsoft.com/fwlink/?linkid=2327008"
-          $out = "$env:TEMP\winsdksetup.exe"
+          $out = "$env:RUNNER_TEMP\winsdksetup.exe"
           curl.exe -sL $url -o $out
           if (-not (Test-Path $out)) {
             Write-Warning "Standalone download failed, trying vs_installer..."
@@ -87,19 +87,19 @@ jobs:
         shell: pwsh
         run: |
           # Capture ALL output to a log file for debugging
-          $logFile = "$env:TEMP\build_setup.log"
+          $logFile = "$env:RUNNER_TEMP\build_setup.log"
           function log($msg) { $msg | Out-File $logFile -Append; Write-Host $msg }
 
           log "=== Starting Build setup.exe ==="
           log "SystemRoot: $env:SystemRoot"
-          log "Temp: $env:TEMP"
+          log "Temp: $env:RUNNER_TEMP"
 
           $vsPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
           log "VS Path: $vsPath"
 
-          $stagingX64 = "$env:TEMP\redist\x64"
-          $stagingX86 = "$env:TEMP\redist\x86"
-          Remove-Item -Recurse -Force "$env:TEMP\redist" -ErrorAction SilentlyContinue
+          $stagingX64 = "$env:RUNNER_TEMP\redist\x64"
+          $stagingX86 = "$env:RUNNER_TEMP\redist\x86"
+          Remove-Item -Recurse -Force "$env:RUNNER_TEMP\redist" -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Force -Path $stagingX64 | Out-Null
           New-Item -ItemType Directory -Force -Path $stagingX86 | Out-Null
           $needed = @("vcruntime140.dll", "vcruntime140_1.dll", "mfc140.dll")
@@ -150,7 +150,7 @@ jobs:
 
           # ---- LOG STAGED DLLS ----
           log "=== Staged DLLs ==="
-          Get-ChildItem "$env:TEMP\redist" -Recurse -Filter "*.dll" -ErrorAction SilentlyContinue |
+          Get-ChildItem "$env:RUNNER_TEMP\redist" -Recurse -Filter "*.dll" -ErrorAction SilentlyContinue |
             ForEach-Object { log "  $($_.FullName)" }
 
           # ---- CHECK MAKENSIS ----
@@ -167,10 +167,10 @@ jobs:
 
           # ---- Test NSIS with minimal script ----
           log "=== Testing NSIS with minimal script ==="
-          $testScript = "$env:TEMP\test.nsi"
+          $testScript = "$env:RUNNER_TEMP\test.nsi"
           @"
 Name "test"
-OutFile "$env:TEMP\test.exe"
+OutFile "$env:RUNNER_TEMP\test.exe"
 Section
 SectionEnd
 "@ | Out-File -Encoding ASCII $testScript
