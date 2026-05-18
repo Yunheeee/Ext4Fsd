@@ -165,17 +165,6 @@ jobs:
             exit 1
           }
 
-          # ---- Test NSIS with minimal script ----
-          log "=== Testing NSIS with minimal script ==="
-          $testScript = "$env:RUNNER_TEMP\test.nsi"
-          @"
-          Name "test"
-          OutFile "$env:RUNNER_TEMP\test.exe"
-          Section
-          SectionEnd
-          "@ | Out-File -Encoding ASCII $testScript
-          & $makensis $testScript 2>&1 | ForEach-Object { log "  NSIS test: $_" }
-          log "Test NSIS exit code: $LASTEXITCODE"
 
           # ---- PREPARE MAKENSIS FLAGS ----
           log "=== Preparing makensis flags ==="
