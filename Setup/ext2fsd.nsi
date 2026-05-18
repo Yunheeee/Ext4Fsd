@@ -99,18 +99,27 @@ SetOutPath $INSTDIR
 ; select the files.
 IfFileExists $WINDIR\SysWOW64\*.* 0 else
     ; 64-bit.
-    File "${MSVPATH_X64}\${VCDLL_X64A}.dll"
-    File "${MSVPATH_X64}\${VCDLL_X64B}.dll"
-    File "${MFCPATH_X64}\${MFCDLL}.dll"
+    !ifdef HAS_VCRT_X64
+      File "${MSVPATH_X64}\${VCDLL_X64A}.dll"
+      File "${MSVPATH_X64}\${VCDLL_X64B}.dll"
+    !endif
+    !ifdef HAS_MFC_X64
+      File "${MFCPATH_X64}\${MFCDLL}.dll"
+    !endif
     File "${MGRPATH_X64}\Ext2Mgr.exe"
     File "${SRVPATH_X64}\Ext2Srv.exe"
 ;    File "${SYSPATH_X64}\${DRIVERNAME}.pdb"
+    File "${SYSPATH_X64}\${DRIVERNAME}.cat"        ; 签名目录文件（Windows 10+ 强制要求）
     File "${SYSPATH_X64}\${DRIVERNAME}.sys"
     Goto endif
 else:
     ; 32-bit.
-    File "${MSVPATH_X86}\${VCDLL_X86}.dll"
-    File "${MFCPATH_X86}\${MFCDLL}.dll"
+    !ifdef HAS_VCRT_X86
+      File "${MSVPATH_X86}\${VCDLL_X86}.dll"
+    !endif
+    !ifdef HAS_MFC_X86
+      File "${MFCPATH_X86}\${MFCDLL}.dll"
+    !endif
     File "${MGRPATH_X86}\Ext2Mgr.exe"
     File "${SRVPATH_X86}\Ext2Srv.exe"
 ;    File "${SYSPATH_X86}\${DRIVERNAME}.pdb"
