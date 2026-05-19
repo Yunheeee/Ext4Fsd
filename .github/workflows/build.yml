@@ -95,13 +95,12 @@ jobs:
           $ver = & $makensis -version 2>&1
           Write-Host "Version: $ver"
 
-          # Create a minimal NSIS test script without using here-strings
-          $testContent = 'Name "test"
-OutFile "' + $env:RUNNER_TEMP + '\test.exe"
-Section
-SectionEnd'
+          # Build a minimal NSIS test script line by line (avoid YAML indent issues)
           $testScript = "$env:RUNNER_TEMP\test.nsi"
-          Set-Content -Path $testScript -Value $testContent
+          Set-Content -Path $testScript -Value 'Name "test"'
+          Add-Content -Path $testScript -Value ('OutFile "' + $env:RUNNER_TEMP + '\test.exe"')
+          Add-Content -Path $testScript -Value 'Section'
+          Add-Content -Path $testScript -Value 'SectionEnd'
           Write-Host "Test script created at $testScript"
           Get-Content $testScript | ForEach-Object { Write-Host "  $_" }
 
