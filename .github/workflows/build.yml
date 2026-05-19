@@ -63,8 +63,8 @@ jobs:
 
       # Build both architectures for Windows
       # Note: WDK 10.0.26100 does NOT support x86 (Win32) kernel-mode drivers.
-      - name: Build x64 Release (driver + tools)
-        run: msbuild Ext4Fsd.sln /p:Configuration=Release /p:Platform=x64 /m
+      - name: Build x64 Release (driver + tools, test-signed)
+        run: msbuild Ext4Fsd.sln /p:Configuration=Release /p:Platform=x64 /p:SignMode=TestSign /m
       - name: Build x86 tools only (Ext2Srv + Ext2Mgr)
         run: |
           msbuild Ext2Srv\Ext2Srv.vcxproj /p:Configuration=Release /p:Platform=Win32 /m
@@ -124,34 +124,6 @@ jobs:
           log "SystemRoot: $env:SystemRoot"
           log "Temp: $env:RUNNER_TEMP"
           log "Workspace: $env:GITHUB_WORKSPACE"
-
-          # ---- DIAGNOSTIC: List build output directories ----
-          log "=== Directory listing: build outputs ==="
-          $dirsToCheck = @(
-            "Ext2Mgr\Release\x64",
-            "Ext2Mgr\Release\x86",
-            "Ext2Srv\Release\x64",
-            "Ext2Srv\Release\x86",
-            "Ext4Fsd\Release\x64",
-            "Ext4Fsd\Release\x86"
-          )
-          foreach ($d in $dirsToCheck) {
-            $fullPath = Join-Path $env:GITHUB_WORKSPACE $d
-            if (Test-Path $fullPath) {
-              log "  DIR $d (exists):"
-              Get-ChildItem $fullPath -ErrorAction SilentlyContinue | ForEach-Object {
-                log "    $($_.Name) ($( '{0:N0}' -f $_.Length ) bytes)"
-              }
-            } else {
-              log "  DIR $d (MISSING)"
-            }
-          }
-          # Also list the top-level build output dirs
-          log "=== Top-level Release dirs ==="
-          Get-ChildItem "$env:GITHUB_WORKSPACE\*" -Directory -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -match 'Release|Ext\d' } | ForEach-Object {
-              log "  Found: $($_.FullName)"
-            }
 
           $vsPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
           log "VS Path: $vsPath"
@@ -266,15 +238,6 @@ jobs:
             $mkaArgs += "/DX86_TOOLS_AVAILABLE"
           } else {
             log "x86 tools not available, skipping from installer"
-          }
-
-          # Check catalog file (security catalog for driver signing)
-          $catFile = "Ext4Fsd\Release\x64\Ext2Fsd.cat"
-          if (Test-Path $catFile) {
-            log "x64 catalog file found, including in installer"
-            $mkaArgs += "/DHAS_CAT_X64"
-          } else {
-            log "x64 catalog file not found, skipping from installer"
           }
 
           Push-Location Setup

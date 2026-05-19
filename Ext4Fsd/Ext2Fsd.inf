@@ -5,9 +5,9 @@
 ; Project: http://ext2fsd.sourceforge.net
 ; Ext2Fsd author:  Matt Wu <mattwu@163.com>
 ; Inf author: Stefan Kanthak <skanthak@nexgo.de>
-; Updated for Windows 10: Bo Brantén <bosse@acc.umu.se>
+; Updated for Windows 10: Bo Brantï¿½n <bosse@acc.umu.se>
 ;
-; Copyright (C) 2016, 2020, Stefan Kanthak, Matt Wu, Bo Brantén.
+; Copyright (C) 2016, 2020, Stefan Kanthak, Matt Wu, Bo Brantï¿½n.
 
 [Version]
 Class       = ExtendedFileSystem
@@ -16,7 +16,7 @@ InfVersion  = "01.04.00"
 Provider    = %Ext2Fsd*Author%
 Signature   = "$Windows NT$"
 DriverVer   = 02/26/2024,0.71
-CatalogFile = Ext2Fsd.cat
+;CatalogFile = Ext2Fsd.cat
 PnpLockdown = 1
 
 [DefaultInstall.NTx86]
