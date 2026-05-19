@@ -135,7 +135,7 @@ else:
     !endif
 endif:
 
-File "${SYSPATH_X64}\${DRIVERNAME}.inf"
+File "..\ext4fsd\${DRIVERNAME}.inf"
 
 SetOutPath $INSTDIR\Documents
 File "..\ext4fsd\COPYRIGHT.txt"
