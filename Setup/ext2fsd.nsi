@@ -122,8 +122,11 @@ else:
     !ifdef HAS_MFC_X86
       File "${MFCPATH_X86}\${MFCDLL}.dll"
     !endif
-    File "${MGRPATH_X86}\Ext2Mgr.exe"
-    File "${SRVPATH_X86}\Ext2Srv.exe"
+    ; x86 tools may not be available (Win32 MSBuild doesn't always produce them)
+    !ifdef X86_TOOLS_AVAILABLE
+      File "${MGRPATH_X86}\Ext2Mgr.exe"
+      File "${SRVPATH_X86}\Ext2Srv.exe"
+    !endif
 ;    File "${SYSPATH_X86}\${DRIVERNAME}.pdb"
     ; WDK 10.0.26100+ does not support x86 kernel-mode drivers,
     ; so the x86 driver may not be available at build time.

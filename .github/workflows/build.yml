@@ -258,6 +258,16 @@ jobs:
             log "x86 driver not available (WDK 26100 limitation), skipping from installer"
           }
 
+          # Check x86 tools (Ext2Mgr.exe and Ext2Srv.exe for Win32)
+          $x86Mgr = "Ext2Mgr\Release\x86\Ext2Mgr.exe"
+          $x86Srv = "Ext2Srv\Release\x86\Ext2Srv.exe"
+          if ((Test-Path $x86Mgr) -and (Test-Path $x86Srv)) {
+            log "x86 tools found (Ext2Mgr.exe + Ext2Srv.exe), including in installer"
+            $mkaArgs += "/DX86_TOOLS_AVAILABLE"
+          } else {
+            log "x86 tools not available, skipping from installer"
+          }
+
           # Check catalog file (security catalog for driver signing)
           $catFile = "Ext4Fsd\Release\x64\Ext2Fsd.cat"
           if (Test-Path $catFile) {
