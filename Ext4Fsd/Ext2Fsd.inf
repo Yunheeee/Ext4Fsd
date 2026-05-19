@@ -16,7 +16,7 @@ InfVersion  = "01.04.00"
 Provider    = %Ext2Fsd*Author%
 Signature   = "$Windows NT$"
 DriverVer   = 02/26/2024,0.71
-;CatalogFile = Ext2Fsd.cat
+CatalogFile = Ext2Fsd.cat
 PnpLockdown = 1
 
 [DefaultInstall.NTx86]
