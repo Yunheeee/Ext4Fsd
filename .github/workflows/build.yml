@@ -240,10 +240,20 @@ jobs:
 
           Push-Location Setup
           log "=== Running makensis ==="
-          log "  Command: makensis $($mkaArgs -join ' ') ext2fsd.nsi"
-          & $makensis $mkaArgs "ext2fsd.nsi" 2>&1 | ForEach-Object { log "  $_" }
+          $cmd = "makensis $($mkaArgs -join ' ') ext2fsd.nsi"
+          log "  Command: $cmd"
+          $output = & $makensis $mkaArgs "ext2fsd.nsi" 2>&1
+          foreach ($line in $output) {
+            log "  $line"
+            Write-Host "  $line"
+          }
           $exitCode = $LASTEXITCODE
           log "makensis exit code: $exitCode"
+          if ($exitCode -ne 0) {
+            Write-Host "::error::makensis failed with exit code $exitCode"
+            Write-Host "::error::Command: $cmd"
+            foreach ($line in $output) { Write-Host "::error::$line" }
+          }
           Pop-Location
           if ($exitCode -ne 0) { exit $exitCode }
 
